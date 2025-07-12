@@ -1,0 +1,77 @@
+services:
+  # PostgreSQL Database for Movies
+  postgres:
+    image: postgres:15-alpine
+    container_name: epita-postgres
+    environment:
+      POSTGRES_DB: epita_movies
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root1234
+    ports:
+      - "5433:5432"  # Using port 5433 to avoid conflict
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - epita-network
+
+  # MongoDB for User Authentication
+  mongodb:
+    image: mongo:7-jammy
+    container_name: epita-mongodb
+    ports:
+      - "27018:27017"  # Using port 27018 to avoid conflict
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - epita-network
+
+  # Backend API
+  backend:
+    build: ./adv-js
+    container_name: epita-backend
+    ports:
+      - "8081:8080"  # Using external port 8081 to avoid conflict with 8000
+    environment:
+      JWT_SECRET_KEY: "8JHcdQWxohvR9Wg0bHnGUpN44zuTMR3N"
+      DB_USER: "postgres"
+      DB_HOST: "postgres"
+      DB_NAME: "epita_movies"
+      DB_PASSWORD: "root1234"
+      MONGO_URI: "mongodb://mongodb:27017/epita"
+      AWS_ACCESS_KEY: ""
+      AWS_SECRET: ""
+    depends_on:
+      - postgres
+      - mongodb
+    networks:
+      - epita-network
+    volumes:
+      - ./adv-js:/app
+      - /app/node_modules
+
+  # Frontend React App
+  frontend:
+    build: ./FEA
+    container_name: epita-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: "http://localhost:8081"
+    depends_on:
+      - backend
+    networks:
+      - epita-network
+    volumes:
+      - ./FEA:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
+  mongodb_data:
+
+networks:
+  epita-network:
+    driver: bridge
